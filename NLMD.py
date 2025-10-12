@@ -1,6 +1,18 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from skimage.io import imread
+import time
+import platform
+import tempfile
+import os
+import matplotlib.pyplot as plt
+from scipy import ndimage as ndi
+import skimage
+from skimage import io as skio
+import IPython
+from skimage.transform import rescale
+from skimage.io import imread
+
+
 
 im=imread('img/pyramide.tif')
 
@@ -20,6 +32,35 @@ def gaussian_noise_image(image, sigma):
     noisy_image = image + noise
     noisy_image = np.clip(noisy_image, 0, 255)  # Ensure pixel values are valid
     return noisy_image
+
+
+def noise(im,br):
+    """ Cette fonction ajoute un bruit blanc gaussier d'ecart type br
+       a l'image im et renvoie le resultat"""
+    imt=np.float32(im.copy())
+    sh=imt.shape
+    bruit=br*np.random.randn(*sh)
+    imt=imt+bruit
+    return imt
+
+def viewimage(im, normalize=True,z=1,order=0,titre='',displayfilename=False):
+    imin=im.copy().astype(np.float32)
+    imin = rescale(imin, z, order=order)
+    if normalize:
+        imin-=imin.min()
+        if imin.max()>0:
+            imin/=imin.max()
+    else:
+        imin=imin.clip(0,255)/255 
+    imin=(imin*255).astype(np.uint8)
+    filename=tempfile.mktemp(titre+'.png')
+    if displayfilename:
+        print (filename)
+    plt.imsave(filename, imin, cmap='gray')
+    IPython.display.display(IPython.display.Image(filename))
+
+
+
 
 def salt_and_pepper_noise(image, amount=0.05, salt_vs_pepper=0.5):
     """
@@ -124,20 +165,21 @@ def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
 
 
 
+gnimg=noise(im,20)
+viewimage(gnimg,normalize=False)
 
-gnimg=gaussian_noise_image(im, sigma=20)
-spnimg=salt_and_pepper_noise(im, amount=0.05, salt_vs_pepper=0.5)
-nlm_gnimg=nlm_denoising(gnimg, patch_size=3, search_window=7, h=10.0)
-nlm_spnimg=nlm_denoising(spnimg, patch_size=3   , search_window=7, h=10.0)
+#spnimg=salt_and_pepper_noise(im, amount=0.05, salt_vs_pepper=0.5)
+start = time.time()
+nlm_gnimg=nlm_naif(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+endg = time.time()
+#nlm_spnimg=nlm_naif(spnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+endsp = time.time()
 
 plt.figure("Image originale")
 plt.imshow(im, cmap='gray')
 plt.figure("Image bruitée par du bruit gaussien")
 plt.imshow(gnimg, cmap='gray')
-plt.figure("Image bruitée par du bruit sel et poivre")
-plt.imshow(spnimg, cmap='gray')
 plt.figure("Image débruitée par NLMD du bruit gaussien")
 plt.imshow(nlm_gnimg, cmap='gray')
 plt.figure("Image débruitée par NLMD du bruit sel et poivre")
-plt.imshow(nlm_spnimg, cmap='gray')
 plt.show()
