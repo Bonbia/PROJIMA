@@ -48,7 +48,63 @@ def salt_and_pepper_noise(image, amount=0.05, salt_vs_pepper=0.5):
     return noisy_image
 
 
-def nlm_denoising(image, patch_size=3, search_window=7, h=10.0):
+#Pixelwise implementation of NLMD
+def nlm_naif(img,patch_size,search_window,h,sigma):
+    #Sigma est le "standard deviation" du bruit
+    denoised_img=np.zeros(img.shape)
+    half_patch=patch_size//2
+    half_window=search_window//2
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            i1,j1=i-half_patch,j-half_patch
+            i2,j2=i+half_patch,j+half_patch
+            #I et J restent nos centres de patchs et on regarde les patchs autour d'eux
+            if i1<0 :
+                i1=0
+            if j1<0 :
+                j1=0
+            if i2>img.shape[0] :
+                i2=img.shape[0]
+            if j2>img.shape[1] :
+                j2=img.shape[1]
+                        
+            #Patch de référence
+            patch1= img[i1:i2, j1:j2]
+            weights = []
+            i_start=max(0,i-half_window)
+            i_end=min(img.shape[0],i+half_window)
+            j_start=max(0,j-half_window)    
+            j_end=min(img.shape[1],j+half_window)
+            for k in range(i_start,i_end):
+                for l in range(j_start,j_end):
+                    k1,l1=k-half_patch,l-half_patch
+                    k2,l2=k+half_patch,l+half_patch
+                    if k1<0 :
+                        k1=0
+                    if l1<0 :
+                        l1=0
+                    if k2>img.shape[0] :
+                        k2=img.shape[0]
+                    if l2>img.shape[1] :
+                        l2=img.shape[1]
+                    patch2= img[k1:k2, l1:l2]
+                    #Calcul de la distance entre les deux patchs
+                    dist=np.sum((patch1-patch2)**2)
+                    #Modif pour prendre en compte le sigma mais bof pour le moment
+                    #dist=max(dist-2*(sigma**2),0)
+                    weights.append(np.exp(dist/(h*h)))
+            C=np.sum(weights)
+            for x in range(len(weights)):
+                val=img[i_start + x//(j_end-j_start), j_start + x%(j_end-j_start)]
+                denoised_img[i,j]+=weights[x]*val/C
+    return denoised_img
+            
+            
+            
+            
+            
+            
+def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
     padded_image = np.pad(image, patch_size // 2, mode='reflect')
     denoised_image = np.zeros_like(image)
     half_patch = patch_size // 2
