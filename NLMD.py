@@ -234,12 +234,23 @@ def nlm_patchwise(img, patch_size=7, search_window=21, h=10, sigma=15):
             # Parcourir les patches voisins
             for k in range(i_start, i_end + 1):
                 for l in range(j_start, j_end + 1):
-                    neighbor_patch = img[k-half_patch:k+half_patch+1, l-half_patch:l+half_patch+1]
-                    dist = np.sum((patch - neighbor_patch)**2) / (patch_size**2)
-                    weight = np.exp(-max(dist - 2*(sigma**2), 0) / (h**2))
-                    weighted_patch_sum += weight * neighbor_patch
-                    weights_sum_patch += weight
+                    k1, l1 = k - half_patch, l - half_patch
+                    k2, l2 = k + half_patch, l + half_patch
+                    neighbor_patch = img[k1:k2+1, l1:l2+1]
 
+                    # Taille minimale pour normaliser la distance
+                    h1, w1 = patch.shape
+                    h2, w2 = neighbor_patch.shape
+                    min_h, min_w = min(h1, h2), min(w1, w2)
+                    min_size = min_h * min_w
+
+                    # Calcul de la distance normalisée
+                    diff = patch[:min_h, :min_w] - neighbor_patch[:min_h, :min_w]
+                    dist = np.sum(diff**2) / min_size
+                    weight = np.exp(-max(dist - 2*(sigma**2), 0) / (h**2))
+
+                    weighted_patch_sum[:min_h, :min_w] += weight * neighbor_patch[:min_h, :min_w]
+                    weights_sum_patch += weight
             # Estimation du patch débruité
             if weights_sum_patch > 0:
                 denoised_patch = weighted_patch_sum / weights_sum_patch
@@ -301,7 +312,9 @@ plt.figure("Image originale")
 plt.imshow(im, cmap='gray')
 plt.figure("Image bruitée par du bruit gaussien")
 plt.imshow(gnimg, cmap='gray')
-plt.figure("Image débruitée par NLMD du bruit gaussien")
+plt.figure("Image débruitée par NLMD en pixelwise du bruit gaussien")
 plt.imshow(nlm_gnimg, cmap='gray')
+plt.figure("Image débruitée par NLMD en patchwise du bruit gaussien")
+plt.imshow(nlm_gnimg2, cmap='gray')
 
 plt.show()
