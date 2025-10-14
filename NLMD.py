@@ -33,8 +33,8 @@ def gaussian_noise_image(image, sigma):
     noisy_image = np.clip(noisy_image, 0, 255)  # Ensure pixel values are valid
     return noisy_image
 
-
-def noise(im,br):
+#Fonction de bruit gaussien cf tp 
+def noisegauss(im,br):
     """ Cette fonction ajoute un bruit blanc gaussier d'ecart type br
        a l'image im et renvoie le resultat"""
     imt=np.float32(im.copy())
@@ -43,6 +43,7 @@ def noise(im,br):
     imt=imt+bruit
     return imt
 
+#Fonction affichage
 def viewimage(im, normalize=True,z=1,order=0,titre='',displayfilename=False):
     imin=im.copy().astype(np.float32)
     imin = rescale(imin, z, order=order)
@@ -100,6 +101,8 @@ def nlm_naif(img,patch_size,search_window,h,sigma):
             i1,j1=i-half_patch,j-half_patch
             i2,j2=i+half_patch,j+half_patch
             #I et J restent nos centres de patchs et on regarde les patchs autour d'eux
+            #On tronque les patchs si on est proche des bords
+            #Probleme pour le calcul des distances
             if i1<0 :
                 i1=0
             if j1<0 :
@@ -116,32 +119,81 @@ def nlm_naif(img,patch_size,search_window,h,sigma):
             i_end=min(img.shape[0],i+half_window)
             j_start=max(0,j-half_window)    
             j_end=min(img.shape[1],j+half_window)
-            for k in range(i_start,i_end):
-                for l in range(j_start,j_end):
-                    k1,l1=k-half_patch,l-half_patch
-                    k2,l2=k+half_patch,l+half_patch
-                    if k1<0 :
-                        k1=0
-                    if l1<0 :
-                        l1=0
-                    if k2>img.shape[0] :
-                        k2=img.shape[0]
-                    if l2>img.shape[1] :
-                        l2=img.shape[1]
-                    patch2= img[k1:k2, l1:l2]
-                    #Calcul de la distance entre les deux patchs
-                    dist=np.sum((patch1-patch2)**2)
-                    #Modif pour prendre en compte le sigma mais bof pour le moment
-                    #dist=max(dist-2*(sigma**2),0)
-                    weights.append(np.exp(dist/(h*h)))
-            C=np.sum(weights)
-            for x in range(len(weights)):
-                val=img[i_start + x//(j_end-j_start), j_start + x%(j_end-j_start)]
-                denoised_img[i,j]+=weights[x]*val/C
+            weighted_sum = 0.0
+            weights_sum = 0.0
+            for k in range(i_start, i_end):
+                for l in range(j_start, j_end):
+                    k1, l1 = k - half_patch, l - half_patch
+                    k2, l2 = k + half_patch, l + half_patch
+                    # Gestion des bords (sans padding)
+                    k1, l1 = max(k1, 0), max(l1, 0)
+                    k2, l2 = min(k2, img.shape[0]), min(l2, img.shape[1])
+                    patch2 = img[k1:k2, l1:l2]
+                    dist = np.sum((patch1 - patch2)**2)
+                    dist = max(dist - 2*(sigma**2), 0)
+                    weight = np.exp(-dist / (h*h))
+                    weighted_sum += weight * img[k, l]
+                    weights_sum += weight
+
+            # Évite la division par zéro
+            if weights_sum > 0:
+                denoised_img[i, j] = weighted_sum / weights_sum
+            else:
+                denoised_img[i, j] = img[i, j]
+
     return denoised_img
             
             
-            
+def nlm_naif2(img, patch_size, search_window, h, sigma):
+    denoised_img = np.zeros(img.shape, dtype=np.float32)
+    half_patch = patch_size // 2
+    half_window = search_window // 2
+
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            # Patch de référence (avec gestion des bords)
+            i1, j1 = max(i - half_patch, 0), max(j - half_patch, 0)
+            i2, j2 = min(i + half_patch, img.shape[0] - 1), min(j + half_patch, img.shape[1] - 1)
+            patch1 = img[i1:i2+1, j1:j2+1]
+
+            # Fenêtre de recherche
+            i_start, i_end = max(i - half_window, 0), min(i + half_window, img.shape[0] - 1)
+            j_start, j_end = max(j - half_window, 0), min(j + half_window, img.shape[1] - 1)
+
+            weighted_sum = 0.0
+            weights_sum = 0.0
+            for k in range(i_start, i_end + 1):
+                for l in range(j_start, j_end + 1):
+                    # Patch voisin (avec gestion des bords)
+                    k1, l1 = max(k - half_patch, 0), max(l - half_patch, 0)
+                    k2, l2 = min(k + half_patch, img.shape[0] - 1), min(l + half_patch, img.shape[1] - 1)
+                    patch2 = img[k1:k2+1, l1:l2+1]
+                    # Taille du patch de référence (patch1)
+                    h1, w1 = patch1.shape
+                    # Taille du patch voisin (patch2)
+                    h2, w2 = patch2.shape
+                    # Taille minimale pour normaliser la distance
+                    min_size = min(h1, h2) * min(w1, w2)
+
+                    # Calcul de la distance normalisée
+                    diff = patch1[:min(h1, h2), :min(w1, w2)] - patch2[:min(h1, h2), :min(w1, w2)]
+                    dist = np.sum(diff**2) / min_size  # Normalisation par la taille minimale
+                    dist = max(dist - 2*(sigma**2), 0)
+                    weight = np.exp(-dist / (h*h))
+                    dist = max(dist - 2*(sigma**2), 0)
+                    weight = np.exp(-dist / (h*h))
+
+                    weighted_sum += weight * img[k, l]
+                    weights_sum += weight
+
+            # Évite la division par zéro
+            if weights_sum > 0:
+                denoised_img[i, j] = weighted_sum / weights_sum
+            else:
+                denoised_img[i, j] = img[i, j]
+
+    return np.clip(denoised_img, 0, 255).astype(np.uint8)
+
             
             
             
@@ -165,12 +217,12 @@ def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
 
 
 
-gnimg=noise(im,20)
+gnimg=noisegauss(im,20)
 viewimage(gnimg,normalize=False)
 
 #spnimg=salt_and_pepper_noise(im, amount=0.05, salt_vs_pepper=0.5)
 start = time.time()
-nlm_gnimg=nlm_naif(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+nlm_gnimg=nlm_naif2(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endg = time.time()
 #nlm_spnimg=nlm_naif(spnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endsp = time.time()
@@ -181,5 +233,5 @@ plt.figure("Image bruitée par du bruit gaussien")
 plt.imshow(gnimg, cmap='gray')
 plt.figure("Image débruitée par NLMD du bruit gaussien")
 plt.imshow(nlm_gnimg, cmap='gray')
-plt.figure("Image débruitée par NLMD du bruit sel et poivre")
+
 plt.show()
