@@ -91,7 +91,7 @@ def salt_and_pepper_noise(image, amount=0.05, salt_vs_pepper=0.5):
 
 
 #Pixelwise implementation of NLMD
-def nlm_naif(img,patch_size,search_window,h,sigma):
+def nlm_naif_piw(img,patch_size,search_window,h,sigma):
     #Sigma est le "standard deviation" du bruit
     denoised_img=np.zeros(img.shape)
     half_patch=patch_size//2
@@ -144,7 +144,7 @@ def nlm_naif(img,patch_size,search_window,h,sigma):
     return denoised_img
             
             
-def nlm_naif2(img, patch_size, search_window, h, sigma):
+def nlm_naif2_piw(img, patch_size, search_window, h, sigma):
     denoised_img = np.zeros(img.shape, dtype=np.float32)
     half_patch = patch_size // 2
     half_window = search_window // 2
@@ -194,7 +194,76 @@ def nlm_naif2(img, patch_size, search_window, h, sigma):
 
     return np.clip(denoised_img, 0, 255).astype(np.uint8)
 
-            
+
+def nlm_patchwise(img, patch_size=7, search_window=21, h=10, sigma=15):
+    """
+    Implémentation patchwise du Non-Local Means.
+
+    Args:
+        img: Image en niveaux de gris (numpy array).
+        patch_size: Taille des patches (doit être impair).
+        search_window: Taille de la fenêtre de recherche (doit être impair).
+        h: Paramètre de filtrage (ex: h = 0.4 * sigma).
+        sigma: Écart-type du bruit.
+
+    Returns:
+        Image débruitée (numpy array).
+    """
+    # Initialisation
+    half_patch = patch_size // 2
+    half_search = search_window // 2
+    accumulated_weights = np.zeros_like(img, dtype=np.float32)
+    accumulated_values = np.zeros_like(img, dtype=np.float32)
+
+    # Parcourir chaque pixel central d'un patch
+    for i in range(half_patch, img.shape[0] - half_patch):
+        for j in range(half_patch, img.shape[1] - half_patch):
+            # Extraire le patch de référence
+            patch = img[i-half_patch:i+half_patch+1, j-half_patch:j+half_patch+1]
+
+            # Fenêtre de recherche
+            i_start = max(i - half_search, half_patch)
+            i_end = min(i + half_search, img.shape[0] - half_patch)
+            j_start = max(j - half_search, half_patch)
+            j_end = min(j + half_search, img.shape[1] - half_patch)
+
+            # Initialisation pour le patch débruité
+            weighted_patch_sum = np.zeros_like(patch, dtype=np.float32)
+            weights_sum_patch = 0.0
+
+            # Parcourir les patches voisins
+            for k in range(i_start, i_end + 1):
+                for l in range(j_start, j_end + 1):
+                    neighbor_patch = img[k-half_patch:k+half_patch+1, l-half_patch:l+half_patch+1]
+                    dist = np.sum((patch - neighbor_patch)**2) / (patch_size**2)
+                    weight = np.exp(-max(dist - 2*(sigma**2), 0) / (h**2))
+                    weighted_patch_sum += weight * neighbor_patch
+                    weights_sum_patch += weight
+
+            # Estimation du patch débruité
+            if weights_sum_patch > 0:
+                denoised_patch = weighted_patch_sum / weights_sum_patch
+            else:
+                denoised_patch = patch  # Garde le patch original si aucun poids valide
+
+            # Agrégation des estimations pour chaque pixel du patch
+            for di in range(patch_size):
+                for dj in range(patch_size):
+                    pixel_i = i - half_patch + di
+                    pixel_j = j - half_patch + dj
+                    accumulated_weights[pixel_i, pixel_j] += 1.0
+                    accumulated_values[pixel_i, pixel_j] += denoised_patch[di, dj]
+
+    # Normalisation finale
+    denoised_img = np.divide(
+        accumulated_values,
+        accumulated_weights,
+        out=np.zeros_like(accumulated_values),
+        where=accumulated_weights != 0
+    )
+
+    return np.clip(denoised_img, 0, 255).astype(np.uint8)
+
             
             
 def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
@@ -222,7 +291,8 @@ viewimage(gnimg,normalize=False)
 
 #spnimg=salt_and_pepper_noise(im, amount=0.05, salt_vs_pepper=0.5)
 start = time.time()
-nlm_gnimg=nlm_naif2(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+nlm_gnimg=nlm_naif2_piw(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+nlm_gnimg2=nlm_patchwise(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endg = time.time()
 #nlm_spnimg=nlm_naif(spnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endsp = time.time()
