@@ -1,0 +1,4 @@
+To do list:
+    Ameliorer les Tests de NLM avec des variations d'hyperparametres (taille des fenetres/taille des patchs)
+    Mettre les images sur le meme plot 
+    Tester avec les images envoyées par Elsa
