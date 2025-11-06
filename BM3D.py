@@ -18,6 +18,7 @@ from scipy.spatial import distance
 
 im=imread('img/pyramide.tif')
 
+br=20
 
 #Fonction de bruit gaussien cf tp 
 def noisegauss(im,br):
@@ -50,6 +51,21 @@ def viewimage(im, normalize=True,z=1,order=0,titre='',displayfilename=False):
 
 
 ### 
+l=20
+sigm=br
+
+
+def sigma(patch,l,sigm):
+    for i in range(patch.shape[0]):
+        for j in range(patch.shape[1]):
+            if abs(patch[i,j])<l*sigm:
+                patch[i,j]=0
+    return patch
+
+def distpatch(patch1,patch2,khard=2):
+    dist=distance.euclidean(sigma(patch1),sigma(patch2))/(khard**2)
+    return dist
+    
 
 def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250):
     for i in range(patch_size//2, im.shape[0] - patch_size//2):
@@ -68,7 +84,7 @@ def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250)
             for x in range(patch_size//2, window.shape[0] - patch_size//2):
                 for y in range(patch_size//2, window.shape[1] - patch_size//2):
                     current_patch = window[x-patch_size//2:x+patch_size//2, y-patch_size//2:y+patch_size//2]
-                    dist = distance.euclidean(ref_patch.flatten(), current_patch.flatten())
+                    dist = distpatch(ref_patch.flatten(), current_patch.flatten(),khard)
                     if dist < distmin:
                         distmin=dist
                     if dist < threshard :
