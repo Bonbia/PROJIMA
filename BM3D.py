@@ -51,8 +51,8 @@ def viewimage(im, normalize=True,z=1,order=0,titre='',displayfilename=False):
 
 
 ### 
-l=20
-sigm=br
+l=20        #Lambda hard thresholding
+sigm=br     #ecart type du bruit
 
 
 def sigma(patch,l,sigm):
@@ -102,4 +102,21 @@ def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250)
             # 'grouped_patches' est maintenant un bloc 3D de patches similaires
             block_3D = np.stack(grouped_patches, axis=2)
     return block_3D
+
+
+
+#Transfo lineaire en 3D
+
+def ondelet_3D(block_3D):
+    coeffs = skimage.restoration.denoise_wavelet(block_3D, method='BayesShrink', mode='soft', wavelet_levels=3, multichannel=False, rescale_sigma=True)
+    return coeffs
+def invondelet_3D(coeffs):
+    reconstructed = skimage.restoration.denoise_wavelet(coeffs, method='BayesShrink', mode='soft', wavelet_levels=3, multichannel=False, rescale_sigma=True)
+    return reconstructed
+
+def collaborative_filtering(block_3D):
+    Dtransfo=ondelet_3D(block_3D)
+    Shrinked= sigma(Dtransfo,l,sigm)    
+    Dinversed= invondelet_3D(Shrinked)
+    return Dinversed
 
