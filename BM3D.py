@@ -123,3 +123,12 @@ def collaborative_filtering(block_3D):
     Dinversed= invondelet_3D(Shrinked)  #Transfo inverse ondelette
     return Dinversed
 
+
+
+
+#Aggregation
+
+
+def aggregation():
+    #A faire
+    pass()

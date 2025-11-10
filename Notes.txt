@@ -5,3 +5,4 @@ NLM:
     Tester avec les images envoyées par Elsa
 BM3D: 
     Voir pour plusieurs transformations 3D
+    Etape de block wise estimation ?? (pas detaillée dans le papier)
