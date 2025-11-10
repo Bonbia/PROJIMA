@@ -53,21 +53,32 @@ def viewimage(im, normalize=True,z=1,order=0,titre='',displayfilename=False):
 ### 
 l=20        #Lambda hard thresholding
 sigm=br     #ecart type du bruit
-
+khard=8     #Taille des patchs
 
 def sigma(patch,l,sigm):
+    '''
+    Seuillage dur (Hard Tresholding) sur un patch avec le seul lambda*sigma
+    '''
     for i in range(patch.shape[0]):
         for j in range(patch.shape[1]):
             if abs(patch[i,j])<l*sigm:
                 patch[i,j]=0
     return patch
 
-def distpatch(patch1,patch2,khard=2):
+def distpatch(patch1,patch2,khard=8):
+    '''
+    Calcul distance entre deux patchs
+    '''
     dist=distance.euclidean(sigma(patch1),sigma(patch2))/(khard**2)
     return dist
     
 
-def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250):
+def grouping(im,patch_size=8,search_window=16,max_similar_patches=16,threshard=250):
+    '''
+    Etape de grouping des patchs similaires dans une image bruitée 'im'.
+    Renvoie un bloc 3D de patches similaires.
+    '''
+    
     for i in range(patch_size//2, im.shape[0] - patch_size//2):
         for j in range(patch_size//2, im.shape[1] - patch_size//2):
             # Extraire le patch de référence
@@ -111,6 +122,9 @@ def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250)
 #Voir si autre transfo 3D
 
 def ondelet_3D(block_3D):
+    '''
+    Transfo ondelettes 3D sur un block 3D de patchs.
+    '''
     coeffs = skimage.restoration.denoise_wavelet(block_3D, method='BayesShrink', mode='soft', wavelet_levels=3, multichannel=False, rescale_sigma=True)
     return coeffs
 def invondelet_3D(coeffs):
@@ -124,11 +138,11 @@ def collaborative_filtering(block_3D):
     return Dinversed
 
 
-
-
 #Aggregation
 
 
 def aggregation():
-    #A faire
+    v=np.zeros(im.shape)
+    d=np.zeros(im.shape)
+    
     pass()
