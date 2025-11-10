@@ -107,6 +107,9 @@ def grouping(patch_size=8,search_window=16,max_similar_patches=16,threshard=250)
 
 #Transfo lineaire en 3D
 
+#Voir pb si prends pas bien les 3DBlock direct le faire patch par patch
+#Voir si autre transfo 3D
+
 def ondelet_3D(block_3D):
     coeffs = skimage.restoration.denoise_wavelet(block_3D, method='BayesShrink', mode='soft', wavelet_levels=3, multichannel=False, rescale_sigma=True)
     return coeffs
@@ -115,8 +118,8 @@ def invondelet_3D(coeffs):
     return reconstructed
 
 def collaborative_filtering(block_3D):
-    Dtransfo=ondelet_3D(block_3D)
-    Shrinked= sigma(Dtransfo,l,sigm)    
-    Dinversed= invondelet_3D(Shrinked)
+    Dtransfo=ondelet_3D(block_3D) #Transfo ondelette sur le block 3D
+    Shrinked= sigma(Dtransfo,l,sigm)    #Seuillage dur du block 
+    Dinversed= invondelet_3D(Shrinked)  #Transfo inverse ondelette
     return Dinversed
 
