@@ -1,3 +1,5 @@
+#%%
+
 import numpy as np
 from skimage.io import imread
 import time
@@ -13,10 +15,9 @@ from skimage.transform import rescale
 from skimage.io import imread
 from scipy.spatial import distance
 
-
+#%%
 ### 
 
-im=imread('img/pyramide.tif')
 
 br=20
 
@@ -59,19 +60,23 @@ def sigma(patch,l,sigm):
     '''
     Seuillage dur (Hard Tresholding) sur un patch avec le seul lambda*sigma
     '''
+    #Le patch (ressorti)est un vecteur en 1D
     for i in range(patch.shape[0]):
-        for j in range(patch.shape[1]):
-            if abs(patch[i,j])<l*sigm:
-                patch[i,j]=0
+        if abs(patch[i])<l*sigm:
+            patch[i]=0
     return patch
 
 def distpatch(patch1,patch2,khard=8):
     '''
     Calcul distance entre deux patchs
     '''
-    dist=distance.euclidean(sigma(patch1),sigma(patch2))/(khard**2)
+    dist=distance.euclidean(sigma(patch1,l,sigm),sigma(patch2,l,sigm))/(khard**2)
     return dist
     
+
+#Max Similar Patches = Nhard ?
+Nhard=16
+
 
 def grouping(im,patch_size=8,search_window=16,max_similar_patches=16,threshard=250):
     '''
@@ -141,8 +146,21 @@ def collaborative_filtering(block_3D):
 #Aggregation
 
 
-def aggregation():
-    v=np.zeros(im.shape)
-    d=np.zeros(im.shape)
+# def aggregation():
+#     v=np.zeros(im.shape)
+#     d=np.zeros(im.shape)
     
-    pass()
+#     pass()
+
+
+
+#%%#Test des fonctions
+im=imread('img/pyramide.tif')
+imb=noisegauss(im,br)
+
+viewimage(imb,titre='Image bruitée',displayfilename=True)
+block_3D=grouping(imb,patch_size=khard,search_window=16,max_similar_patches=Nhard,threshard=250)
+print("Block 3D shape:", block_3D.shape)
+
+# %%
+
