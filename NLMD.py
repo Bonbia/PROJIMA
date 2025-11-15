@@ -1,3 +1,4 @@
+#%% Imports
 import numpy as np
 from skimage.io import imread
 import time
@@ -12,7 +13,7 @@ import IPython
 from skimage.transform import rescale
 from skimage.io import imread
 
-
+#%%
 
 im=imread('img/pyramide.tif')
 
@@ -89,6 +90,7 @@ def salt_and_pepper_noise(image, amount=0.05, salt_vs_pepper=0.5):
 
     return noisy_image
 
+#%%
 
 #Pixelwise implementation of NLMD
 def nlm_naif_piw(img,patch_size,search_window,h,sigma):
@@ -296,7 +298,7 @@ def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
     return denoised_image
 
 
-
+#%% Test des fonctions
 gnimg=noisegauss(im,20)
 viewimage(gnimg,normalize=False)
 
@@ -318,3 +320,26 @@ plt.figure("Image débruitée par NLMD en patchwise du bruit gaussien")
 plt.imshow(nlm_gnimg2, cmap='gray')
 
 plt.show()
+
+#%% Affichage comparatif avec meme echelles de gris 
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+ax = axes.ravel()
+ax[0].imshow(im, cmap='gray', vmin=0, vmax=255)
+ax[0].set_title('Image originale')
+ax[1].imshow(gnimg, cmap='gray', vmin=0, vmax=255)
+ax[1].set_title('Image bruitée (gaussien)')
+ax[2].imshow(nlm_gnimg, cmap='gray', vmin=0, vmax=255)
+ax[2].set_title('NLMD pixelwise')
+ax[3].imshow(nlm_gnimg2, cmap='gray', vmin=0, vmax=255)
+ax[3].set_title('NLMD patchwise')
+
+for a in ax:
+    a.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+#%% Autres Tests
+
+
+
