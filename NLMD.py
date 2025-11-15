@@ -341,5 +341,16 @@ plt.show()
 
 #%% Autres Tests
 
+nlm_gnimg=nlm_naif2_piw(gnimg, patch_size=3, search_window=7, h=8.0, sigma=20)
+nlm_gnimg2=nlm_naif2_piw(gnimg, patch_size=5, search_window=7, h=8.0, sigma=20)
+nlm_gnimg3=nlm_naif2_piw(gnimg, patch_size=7, search_window=7, h=8.0, sigma=20)
+nlm_gnimg5=nlm_naif2_piw(gnimg, patch_size=3, search_window=9, h=8.0, sigma=20)
+nlm_gnimg6=nlm_naif2_piw(gnimg, patch_size=5, search_window=9, h=8.0, sigma=20)
 
 
+
+
+
+
+
+# %%
