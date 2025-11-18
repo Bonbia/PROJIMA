@@ -144,58 +144,7 @@ def nlm_naif_piw(img,patch_size,search_window,h,sigma):
                 denoised_img[i, j] = img[i, j]
 
     return denoised_img
-            
-            
-def nlm_naif2_piw(img, patch_size, search_window, h, sigma):
-    denoised_img = np.zeros(img.shape, dtype=np.float32)
-    half_patch = patch_size // 2
-    half_window = search_window // 2
-
-    for i in range(img.shape[0]):
-        for j in range(img.shape[1]):
-            # Patch de référence (avec gestion des bords)
-            i1, j1 = max(i - half_patch, 0), max(j - half_patch, 0)
-            i2, j2 = min(i + half_patch, img.shape[0] - 1), min(j + half_patch, img.shape[1] - 1)
-            patch1 = img[i1:i2+1, j1:j2+1]
-
-            # Fenêtre de recherche
-            i_start, i_end = max(i - half_window, 0), min(i + half_window, img.shape[0] - 1)
-            j_start, j_end = max(j - half_window, 0), min(j + half_window, img.shape[1] - 1)
-
-            weighted_sum = 0.0
-            weights_sum = 0.0
-            for k in range(i_start, i_end + 1):
-                for l in range(j_start, j_end + 1):
-                    # Patch voisin (avec gestion des bords)
-                    k1, l1 = max(k - half_patch, 0), max(l - half_patch, 0)
-                    k2, l2 = min(k + half_patch, img.shape[0] - 1), min(l + half_patch, img.shape[1] - 1)
-                    patch2 = img[k1:k2+1, l1:l2+1]
-                    # Taille du patch de référence (patch1)
-                    h1, w1 = patch1.shape
-                    # Taille du patch voisin (patch2)
-                    h2, w2 = patch2.shape
-                    # Taille minimale pour normaliser la distance
-                    min_size = min(h1, h2) * min(w1, w2)
-
-                    # Calcul de la distance normalisée
-                    diff = patch1[:min(h1, h2), :min(w1, w2)] - patch2[:min(h1, h2), :min(w1, w2)]
-                    dist = np.sum(diff**2) / min_size  # Normalisation par la taille minimale
-                    dist = max(dist - 2*(sigma**2), 0)
-                    weight = np.exp(-dist / (h*h))
-                    dist = max(dist - 2*(sigma**2), 0)
-                    weight = np.exp(-dist / (h*h))
-
-                    weighted_sum += weight * img[k, l]
-                    weights_sum += weight
-
-            # Évite la division par zéro
-            if weights_sum >  1e-12:
-                denoised_img[i, j] = weighted_sum / weights_sum
-            else:
-                denoised_img[i, j] = img[i, j]
-
-    return np.clip(denoised_img, 0, 255).astype(np.uint8)
-
+ 
 def nlm_naif2_piwcorr(img, patch_size, search_window, h, sigma):
     img = img.astype(np.float32)  # travailler en float cohérent
     denoised_img = np.zeros(img.shape, dtype=np.float32)
