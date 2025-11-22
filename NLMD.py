@@ -181,7 +181,7 @@ def nlm_naif2_piwcorr(img, patch_size, search_window, h, sigma):
                     weighted_sum += weight * img[k, l]
                     weights_sum += weight
 
-            if weights_sum > 1e-12:
+            if weights_sum >= 1e-12:
                 denoised_img[i, j] = weighted_sum / weights_sum
             else:
                 denoised_img[i, j] = img[i, j]
@@ -269,7 +269,7 @@ def nlm_patchwise(img, patch_size=7, search_window=21, h=10, sigma=15):
 
     return np.clip(denoised_img, 0, 255).astype(np.uint8)
 
-            
+
             
 def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
     padded_image = np.pad(image, patch_size // 2, mode='reflect')
@@ -290,28 +290,89 @@ def nlm_denoising(image, patch_size=3, search_window=21, h=10.0):
     return denoised_image
 
 
+#%% Main NLMD Naif function from main.py
+
+
+def nonLocalMeans(noisy, params = tuple(), verbose = True):
+    """
+    Performs the non-local-means algorithm given a noisy image.
+    params = (bigWindowSize, smallWindowSize, h)
+    smallWindowSize MUST BE ODD for correct operation.
+    """
+    bigWindowSize, smallWindowSize, h = params
+    
+    # Force smallWindowSize to be odd
+    if smallWindowSize % 2 == 0:
+        smallWindowSize += 1
+    
+    padwidth = bigWindowSize // 2
+    image = noisy.copy().astype(np.float32)
+
+    # create padded image (float) with reflected borders
+    paddedImage = np.zeros((image.shape[0] + 2*padwidth, image.shape[1] + 2*padwidth), dtype=np.float32)
+    paddedImage[padwidth:padwidth+image.shape[0], padwidth:padwidth+image.shape[1]] = image
+    paddedImage[padwidth:padwidth+image.shape[0], 0:padwidth] = np.fliplr(image[:,0:padwidth])
+    paddedImage[padwidth:padwidth+image.shape[0], padwidth+image.shape[1]:] = np.fliplr(image[:,image.shape[1]-padwidth:image.shape[1]])
+    paddedImage[0:padwidth,:] = np.flipud(paddedImage[padwidth:2*padwidth,:])
+    paddedImage[padwidth+image.shape[0]:, :] = np.flipud(paddedImage[paddedImage.shape[0] - 2*padwidth:paddedImage.shape[0] - padwidth,:])
+
+    iterator = 0
+    totalIterations = image.shape[1]*image.shape[0]*(bigWindowSize - smallWindowSize + 1)**2
+    if verbose:
+        print("TOTAL ITERATIONS = ", totalIterations)
+
+    outputImage = paddedImage.copy()
+    smallhalfwidth = smallWindowSize // 2
+    eps = 1e-12
+
+    # For each pixel in the actual image
+    for imageX in range(padwidth, padwidth + image.shape[1]):
+        for imageY in range(padwidth, padwidth + image.shape[0]):
+            bWinX = imageX - padwidth
+            bWinY = imageY - padwidth
+
+            # comparison neighbourhood (size = smallWindowSize)
+            compNbhd = paddedImage[imageY - smallhalfwidth : imageY + smallhalfwidth + 1,
+                                   imageX - smallhalfwidth : imageX + smallhalfwidth + 1]
+
+            pixelColor = 0.0
+            totalWeight = 0.0
+
+            # iterate all placements of the small window inside the big window
+            for sWinX in range(bWinX, bWinX + bigWindowSize - smallWindowSize + 1):
+                for sWinY in range(bWinY, bWinY + bigWindowSize - smallWindowSize + 1):
+                    # smallNbhd must have same shape as compNbhd
+                    smallNbhd = paddedImage[sWinY : sWinY + smallWindowSize,
+                                            sWinX : sWinX + smallWindowSize]
+
+                    # compute euclidean distance between patches
+                    euclideanDistance = np.sqrt(np.sum(np.square(smallNbhd - compNbhd)))
+                    weight = np.exp(-euclideanDistance / (h + eps))
+                    totalWeight += weight
+                    pixelColor += weight * paddedImage[sWinY + smallhalfwidth, sWinX + smallhalfwidth]
+                    iterator += 1
+
+            if verbose:
+                percentComplete = iterator * 100.0 / (totalIterations + eps)
+                if percentComplete % 5 == 0:
+                    print('% COMPLETE = ', percentComplete)
+
+            # normalize and write result
+            outputImage[imageY, imageX] = pixelColor / (totalWeight + eps)
+
+    return np.clip(outputImage[padwidth:padwidth+image.shape[0], padwidth:padwidth+image.shape[1]], 0, 255).astype(np.uint8)
 #%% Test des fonctions
 gnimg=noisegauss(im,20)
 viewimage(gnimg,normalize=False)
 
 #spnimg=salt_and_pepper_noise(im, amount=0.05, salt_vs_pepper=0.5)
 start = time.time()
-nlm_gnimg=nlm_naif2_piw(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
+nlm_gnimg=nlm_naif_piw(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 nlm_gnimg2=nlm_patchwise(gnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endg = time.time()
 #nlm_spnimg=nlm_naif(spnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endsp = time.time()
 
-plt.figure("Image originale")
-plt.imshow(im, cmap='gray')
-plt.figure("Image bruitée par du bruit gaussien")
-plt.imshow(gnimg, cmap='gray')
-plt.figure("Image débruitée par NLMD en pixelwise du bruit gaussien")
-plt.imshow(nlm_gnimg, cmap='gray')
-plt.figure("Image débruitée par NLMD en patchwise du bruit gaussien")
-plt.imshow(nlm_gnimg2, cmap='gray')
-
-plt.show()
 
 #%% Affichage comparatif avec meme echelles de gris 
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -331,29 +392,11 @@ for a in ax:
 plt.tight_layout()
 plt.show()
 
-#%% Autres Tests
-
-img=imread('img/AnyConv.com___Fish_data_raw_11_HV140_P100510027.tif')
-# bruitimg=noisegauss(img,20)
-viewimage(img,normalize=True)
 
 #%%
-nlm_gnimg=nlm_naif2_piwcorr(img, patch_size=3, search_window=7, h=8.0, sigma=20)
-
-#nlm_gnimg1=nlm_patchwise(img, patch_size=3, search_window=7, h=8.0, sigma=20)
-
-# nlm_gnimg2=nlm_naif2_piw(gnimg, patch_size=5, search_window=7, h=8.0, sigma=20)
-# nlm_gnimg3=nlm_naif2_piw(gnimg, patch_size=7, search_window=7, h=8.0, sigma=20)
-# nlm_gnimg5=nlm_naif2_piw(gnimg, patch_size=3, search_window=9, h=8.0, sigma=20)
-# nlm_gnimg6=nlm_naif2_piw(gnimg, patch_size=5, search_window=9, h=8.0, sigma=20)
-
-
-
-
-
-
-# %%
-
-viewimage(nlm_gnimg,normalize=True)
-
-# %%
+img=imread('img/pyramide.tif')
+noisy=noisegauss(img,20)
+viewimage(noisy,normalize=True)
+denoised=nonLocalMeans(noisy,params=(50,20,8),verbose=True)
+viewimage(denoised,normalize=True)
+#%%
