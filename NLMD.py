@@ -373,6 +373,9 @@ endg = time.time()
 #nlm_spnimg=nlm_naif(spnimg, patch_size=3, search_window=7, h=10.0, sigma=20)
 endsp = time.time()
 
+#%%
+
+
 
 #%% Affichage comparatif avec meme echelles de gris 
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
